@@ -198,7 +198,7 @@ BEGIN
 	CART_RD5 <= high_bank_enabled;
 	CART_RD4 <= low_bank_enabled;
 	
-	CART_DATA <= data_out when (CART_S5 = '0' or CART_S4 = '0' or (CART_CTL = '0' and sic_read_d500))
+	CART_DATA <= data_out when (CART_RW = '1') and (CART_S5 = '0' or CART_S4 = '0' or (CART_CTL = '0' and sic_read_d500))
 					 else "ZZZZZZZZ";
 	
 	sram_cart_bus_enabled <= '0' when cart_type = CART_TYPE_BOOT else '1';
