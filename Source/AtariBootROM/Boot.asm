@@ -100,6 +100,7 @@ start	.proc 				;Cartridge start, RAM, graphics 0 and IOCB no for the editor (E:
 ; ************************ MAIN ****************************
 main	.proc 
 ; set up the colors
+	jsr setup_dl
 	jsr set_colours
 	mva #$FF CH		; set last key pressed to none
 	jsr copy_wait_for_reboot
@@ -238,7 +239,8 @@ end_key
 ; send a byte to the FPGA (byte in Accumulator)
 .proc	send_fpga_cmd
 	sta $D510
-	rts
+;	rts
+	jmp show_d510
 	.endp
 
 .proc send_fpga_ack_wait_clear
@@ -530,7 +532,75 @@ endoftext
 	sta $60E
 	rts
 	.endp
-	
+
+; setup display list at $620 / screen line at $640
+setup_dl	.proc
+	lda #0
+	tay
+clrscr	sta $640,y
+	iny
+	cpy #40
+	bne clrscr
+
+	lda #$70
+	sta $620
+	lda #$60
+	sta $621
+	lda #$42
+	sta $622
+	lda #$40
+	sta $623
+	lda #$06
+	sta $624
+	lda #$01
+	sta $625
+	clc
+	lda 560
+	adc #3
+	sta $626
+	lda 561
+	adc #0
+	sta $627
+	lda 20
+w20	cmp 20
+	beq w20
+	lda #$20
+	sta 560
+	lda #$06
+	sta 561
+	rts
+	.endp
+
+; display $d510 read-back values in status line
+show_d510	.proc
+	pha
+	txa
+	pha
+; shift current displayed values
+	lda $643
+	sta $640
+	lda $644
+	sta $641
+	lda $d521
+	pha
+	and #$0f
+	tax
+	lda shextab,x
+	sta $644
+	pla
+	lsr
+	lsr
+	lsr
+	lsr
+	tax
+	lda shextab,x
+	sta $643
+	pla
+	tax
+	pla
+	rts
+	.endp
+
 ; ************************ DATA ****************************
 	
 	.local top_text
@@ -559,6 +629,10 @@ endoftext
 	.local error_text
 	.byte 'Error:'
 	.endl	
+
+	.local shextab
+	.sb '0123456789ABCDEF'
+	.endl
 	
 scancodes .array [256] = $ff
 	[63]:[127] = "A"              ; "" = internal code '' = ATASCII
