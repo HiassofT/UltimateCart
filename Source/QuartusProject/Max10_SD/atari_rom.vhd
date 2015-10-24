@@ -109,6 +109,7 @@ ARCHITECTURE structure OF atari_rom IS
 	
 	-- Used for sending data from atari to FPGA/NIOS cpu
 	signal atari_d500_byte: std_logic_vector(7 downto 0) := "00000000";
+	signal atari_d500_byte_saved: std_logic_vector(7 downto 0) := "00000000";
 	signal reset_d500_byte: std_logic;
 	
 	-- Bounty bob cartridge selected 4k banks
@@ -198,9 +199,26 @@ BEGIN
 	CART_RD5 <= high_bank_enabled;
 	CART_RD4 <= low_bank_enabled;
 	
-	CART_DATA <= data_out when (CART_S5 = '0' or CART_S4 = '0' or (CART_CTL = '0' and sic_read_d500))
-					 else "ZZZZZZZZ";
+--	CART_DATA <= data_out when (CART_S5 = '0' or CART_S4 = '0' or (CART_CTL = '0' and sic_read_d500))
+--					 else "ZZZZZZZZ";
 	
+	process (cart_type, CART_PHI2, CART_RW, CART_CTL, CART_ADDR, CART_S5, CART_S4, sic_read_d500, atari_d500_byte, data_out)
+	begin
+		if (cart_type = CART_TYPE_BOOT and CART_PHI2 = '1' and CART_RW='1' and CART_CTL = '0' and CART_ADDR(7 downto 4) = x"2") then
+			case CART_ADDR(3 downto 0) is
+				when x"0" => CART_DATA <= atari_d500_byte;
+				when x"1" => CART_DATA <= atari_d500_byte_saved;
+				when others => CART_DATA <= x"00";
+			end case;
+		else
+			if (CART_S5 = '0' or CART_S4 = '0' or (CART_CTL = '0' and sic_read_d500)) then
+				CART_DATA <= data_out;
+			else
+				CART_DATA <= (others => 'Z');
+			end if;
+		end if;
+	end process;
+
 	sram_cart_bus_enabled <= '0' when cart_type = CART_TYPE_BOOT else '1';
 	LED <= nios_led_out when cart_type = CART_TYPE_BOOT else "0000" & not (high_bank_enabled or low_bank_enabled);
 	
@@ -273,6 +291,7 @@ BEGIN
 							if (cart_addr_reg(7 downto 0) = x"10") then
 								-- restrict to D510 only for compatability with Ultimate 1meg
 								atari_d500_byte <= CART_DATA;
+								atari_d500_byte_saved <= CART_DATA;
 							end if;
 						-- atarimax 1mbit bankswitching
 						when CART_TYPE_ATARIMAX_1MBIT =>
